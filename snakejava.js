@@ -1,7 +1,13 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const grid = 40;
-let snake = [{ x: 160, y: 160 }];
+
+// Cobra inicia com cabeça e rabo (dois segmentos alinhados para a direita)
+let snake = [
+  { x: 160, y: 160 }, // cabeça
+  { x: 120, y: 160 }  // rabo
+];
+
 let dx = grid;
 let dy = 0;
 let nextDx = dx;
@@ -13,8 +19,14 @@ let food = {
 };
 let score = 0;
 let lastTime = 0;
-let speed = 150;
-const minSpeed = 60;
+
+// Velocidade e boost/slow (com valores ajustáveis)
+let speed = 150;              // velocidade normal
+const minSpeed = 60;          // velocidade máxima (mais rápido)
+const maxSpeed = 300;         // velocidade mínima (mais devagar)
+const boostSpeed = 80;        // velocidade do boost
+let boosted = false;          // flag para boost
+let slowed = false;           // flag para slow
 
 // Carregando imagens
 const appleImg = new Image();
@@ -65,6 +77,15 @@ function gameLoop(timestamp) {
   if (!lastTime) lastTime = timestamp;
   const delta = timestamp - lastTime;
 
+  // Ajuste dinâmico de velocidade conforme boost/slow
+  if (boosted) {
+    speed = boostSpeed;
+  } else if (slowed) {
+    speed = maxSpeed;
+  } else {
+    speed = 150;
+  }
+
   if (delta > speed) {
     lastTime = timestamp;
 
@@ -106,17 +127,17 @@ function gameLoop(timestamp) {
       snake.pop();
     }
 
-  // Desenhar o fundo de grama (tiles maiores para valorizar o pixel art)
-const grassTileScale = 6; // Aumente para 3 se quiser tiles ainda maiores
-const grassTileSize = grid * grassTileScale;
-for (let x = 0; x < canvas.width; x += grassTileSize) {
-  for (let y = 0; y < canvas.height; y += grassTileSize) {
-    ctx.drawImage(grassImg, x, y, grassTileSize, grassTileSize);
-  }
-}
+    // Desenhar o fundo de grama (tiles maiores para valorizar o pixel art)
+    const grassTileScale = 6;
+    const grassTileSize = grid * grassTileScale;
+    for (let x = 0; x < canvas.width; x += grassTileSize) {
+      for (let y = 0; y < canvas.height; y += grassTileSize) {
+        ctx.drawImage(grassImg, x, y, grassTileSize, grassTileSize);
+      }
+    }
 
     // Desenhar a maçã maior e centralizada
-    const appleScale = 1.25; // ajuste para aumentar/diminuir a maçã
+    const appleScale = 1.25;
     const appleSize = grid * appleScale;
     const appleOffset = (grid - appleSize) / 2;
     ctx.drawImage(
@@ -129,10 +150,10 @@ for (let x = 0; x < canvas.width; x += grassTileSize) {
 
     // Desenhar a cabeça (ajuste de ângulos para sprite virado para cima)
     let headAngle = 0;
-    if (dx > 0) headAngle = Math.PI / 2;        // Direita
-    else if (dx < 0) headAngle = -Math.PI / 2;  // Esquerda
-    else if (dy > 0) headAngle = Math.PI;       // Baixo
-    else if (dy < 0) headAngle = 0;             // Cima
+    if (dx > 0) headAngle = Math.PI / 2;
+    else if (dx < 0) headAngle = -Math.PI / 2;
+    else if (dy > 0) headAngle = Math.PI;
+    else if (dy < 0) headAngle = 0;
     drawRotatedImage(snakeHeadImg, snake[0].x, snake[0].y, headAngle);
 
     // Desenhar o corpo
@@ -155,16 +176,39 @@ for (let x = 0; x < canvas.width; x += grassTileSize) {
   requestAnimationFrame(gameLoop);
 }
 
-// Controles do teclado (atualiza apenas nextDx/nextDy)
+// Controles do teclado (WASD + setas, boost e slow)
 document.addEventListener('keydown', function(e) {
   const key = e.key.toLowerCase();
-  if ((e.key === 'ArrowLeft' || key === 'a') && dx !== grid) {
+
+  // Boost: segurar a tecla na direção atual
+  if ((e.key === 'ArrowRight' || key === 'd') && dx !== -grid) {
+    nextDx = grid; nextDy = 0;
+    boosted = (dx === grid && dy === 0);
+    slowed = false;
+  } else if ((e.key === 'ArrowLeft' || key === 'a') && dx !== grid) {
     nextDx = -grid; nextDy = 0;
+    boosted = (dx === -grid && dy === 0);
+    slowed = false;
   } else if ((e.key === 'ArrowUp' || key === 'w') && dy !== grid) {
     nextDx = 0; nextDy = -grid;
-  } else if ((e.key === 'ArrowRight' || key === 'd') && dx !== -grid) {
-    nextDx = grid; nextDy = 0;
+    boosted = (dx === 0 && dy === -grid);
+    slowed = false;
   } else if ((e.key === 'ArrowDown' || key === 's') && dy !== -grid) {
     nextDx = 0; nextDy = grid;
+    boosted = (dx === 0 && dy === grid);
+    slowed = false;
   }
+
+  // Slow: pressionar tecla perpendicular à direção atual
+  if ((dx !== 0) && (key === 'arrowup' || key === 'w' || key === 'arrowdown' || key === 's')) {
+    slowed = true; boosted = false;
+  }
+  if ((dy !== 0) && (key === 'arrowleft' || key === 'a' || key === 'arrowright' || key === 'd')) {
+    slowed = true; boosted = false;
+  }
+});
+
+document.addEventListener('keyup', function(e) {
+  boosted = false;
+  slowed = false;
 });
